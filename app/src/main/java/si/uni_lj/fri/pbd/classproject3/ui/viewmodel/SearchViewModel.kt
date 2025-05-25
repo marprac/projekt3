@@ -2,14 +2,17 @@ package si.uni_lj.fri.pbd.classproject3.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import si.uni_lj.fri.pbd.classproject3.models.RecipeSummaryIM
 import si.uni_lj.fri.pbd.classproject3.repository.RecipeRepository
+import javax.inject.Inject
 
-class SearchViewModel(
+@HiltViewModel
+class SearchViewModel @Inject constructor(
     private val repo: RecipeRepository
 ) : ViewModel() {
 
@@ -27,9 +30,20 @@ class SearchViewModel(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
     init {
         viewModelScope.launch {
-            _ingredients.value = repo.loadAllIngredients().map { it.strIngredient }
+            _isRefreshing.value = true
+            _errorMessage.value = null // Počisti prejšnjo napako
+            try {
+                _ingredients.value = repo.loadAllIngredients().mapNotNull { it.strIngredient }
+            } catch (e: Exception) {
+                _errorMessage.value = "Error loading ingredients: ${e.message}"
+            } finally {
+                _isRefreshing.value = false
+            }
         }
     }
 
@@ -41,11 +55,21 @@ class SearchViewModel(
 
     fun refresh() = viewModelScope.launch {
         val now = System.currentTimeMillis()
-        if (now - lastPull < 5_000) return@launch
+        if (now - lastPull < 5_000 && !_recipes.value.isEmpty()) return@launch
         lastPull = now
 
         _isRefreshing.value = true
-        _recipes.value = repo.loadRecipes(_selectedIngredient.value ?: return@launch)
-        _isRefreshing.value = false
+        _errorMessage.value = null
+        try {
+            _recipes.value = repo.loadRecipes(_selectedIngredient.value ?: return@launch)
+            if (_recipes.value.isEmpty() && _selectedIngredient.value != null) {
+                _errorMessage.value = "No recipes found for ${_selectedIngredient.value}."
+            }
+        } catch (e: Exception) {
+            _recipes.value = emptyList()
+            _errorMessage.value = "Error loading recipes: ${e.message}"
+        } finally {
+            _isRefreshing.value = false
+        }
     }
 }

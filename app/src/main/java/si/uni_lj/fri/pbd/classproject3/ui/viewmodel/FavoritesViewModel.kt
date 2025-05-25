@@ -2,14 +2,25 @@ package si.uni_lj.fri.pbd.classproject3.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.*
 import si.uni_lj.fri.pbd.classproject3.models.RecipeSummaryIM
 import si.uni_lj.fri.pbd.classproject3.repository.RecipeRepository
+import javax.inject.Inject
 
-class FavoritesViewModel(repo: RecipeRepository) : ViewModel() {
+@HiltViewModel
+class FavoritesViewModel @Inject constructor(
+    repo: RecipeRepository
+) : ViewModel() {
+
+    private val _errorMessage = MutableStateFlow<String?>(null) // Novo
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow() // Novo
+
     val favorites: StateFlow<List<RecipeSummaryIM>> =
         repo.favoriteRecipes()
+            .catch { e ->
+                _errorMessage.value = "Error loading favorites: ${e.message}"
+                emit(emptyList())
+            }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 }

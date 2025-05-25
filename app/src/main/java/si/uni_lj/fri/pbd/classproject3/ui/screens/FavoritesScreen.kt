@@ -3,38 +3,43 @@ package si.uni_lj.fri.pbd.classproject3.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import si.uni_lj.fri.pbd.classproject3.repository.RecipeRepository
+import androidx.hilt.navigation.compose.hiltViewModel
 import si.uni_lj.fri.pbd.classproject3.ui.components.RecipeCard
 import si.uni_lj.fri.pbd.classproject3.ui.viewmodel.FavoritesViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FavoritesScreen(
-    repo: RecipeRepository = remember { /* whichever DI */ },
-    onBack: () -> Unit,
-    onRecipeClick: (String) -> Unit
+    onRecipeClick: (String) -> Unit,
+    viewModel: FavoritesViewModel = hiltViewModel()
 ) {
-    val vm = remember { FavoritesViewModel(repo) }
-    val favorites = vm.favorites.collectAsState()
+    val favorites by viewModel.favorites.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
+
 
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text("Favorites") },
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                }
-            }
+            title = { Text("Favorites") }
         )
     }) { padding ->
-        if (favorites.value.isEmpty()) {
+        if (errorMessage != null) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(errorMessage!!)
+            }
+        } else if (favorites.isEmpty()) {
             Box(
                 Modifier
                     .fillMaxSize()
@@ -51,8 +56,12 @@ fun FavoritesScreen(
                     .padding(padding),
                 contentPadding = PaddingValues(4.dp)
             ) {
-                items(favorites.value.size) { idx ->
-                    RecipeCard(recipe = favorites.value[idx], onClick = onRecipeClick)
+                items(
+                    count = favorites.size,
+                    key = { index -> favorites[index].idMeal }
+                ) { index ->
+                    val recipe = favorites[index]
+                    RecipeCard(recipe = recipe, onClick = onRecipeClick)
                 }
             }
         }

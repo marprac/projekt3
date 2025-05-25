@@ -4,18 +4,24 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import jakarta.inject.Singleton
 import retrofit2.Retrofit
 import si.uni_lj.fri.pbd.classproject3.rest.RestAPI
 import si.uni_lj.fri.pbd.classproject3.rest.ServiceGenerator
+import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
+
     @Provides
     @Singleton
-    fun retrofit(): Retrofit = ServiceGenerator.retrofit
+    fun provideRetrofitInstance(): Retrofit {
+        return ServiceGenerator.retrofit
+    }
 
-    @Provides @Singleton
-    fun restApi(retrofit: Retrofit): RestAPI = retrofit.create(RestAPI::class.java)
+    @Provides
+    @Singleton
+    fun provideRestApi(retrofit: Retrofit): RestAPI {
+        return retrofit.create(RestAPI::class.java)
+    }
 }

@@ -18,7 +18,7 @@ object ServiceGenerator {
             .build()
     }
 
-    private val retrofit: Retrofit by lazy {
+    val retrofit: Retrofit by lazy {
         Retrofit.Builder()
             .baseUrl(Constants.BASE_URL)
             .client(okHttpClient)
