@@ -1,6 +1,7 @@
 package si.uni_lj.fri.pbd.classproject3.database.dao
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -12,15 +13,15 @@ interface RecipeDao {
     @Query("SELECT * FROM RecipeDetails WHERE idMeal = :idMeal")
     suspend fun getRecipeById(idMeal: String?): RecipeDetails?
 
-    @Query("SELECT * FROM RecipeDetails")
-    fun getAllRecipes(): Flow<List<RecipeDetails>>
+    @Query("SELECT * FROM RecipeDetails WHERE isFavorite = 1")
+    fun getFavoriteRecipes(): Flow<List<RecipeDetails>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertRecipe(recipe: RecipeDetails)
+    suspend fun insert(recipe: RecipeDetails)
 
-    @Query("DELETE FROM RecipeDetails WHERE idMeal = :idMeal")
-    suspend fun deleteRecipeById(idMeal: String)
+    @Query("UPDATE RecipeDetails SET isFavorite = :flag WHERE idMeal = :id")
+    suspend fun setFavoriteFlag(id: String, flag: Boolean)
 
-    // DONE: Add the missing methods
-
+    @Delete
+    suspend fun delete(recipe: RecipeDetails)
 }

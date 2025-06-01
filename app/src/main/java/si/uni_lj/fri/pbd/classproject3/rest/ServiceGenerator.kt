@@ -1,34 +1,48 @@
 package si.uni_lj.fri.pbd.classproject3.rest
 
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import si.uni_lj.fri.pbd.classproject3.Constants
+import java.util.concurrent.TimeUnit
 
 object ServiceGenerator {
-        private lateinit var sBuilder: Retrofit.Builder
-        private lateinit var sHttpClient: OkHttpClient.Builder
-        private lateinit var sRetrofit: Retrofit
-    private fun init() {
-        sHttpClient = OkHttpClient.Builder()
-        sBuilder = Retrofit.Builder().baseUrl(Constants.BASE_URL).addConverterFactory(
-            GsonConverterFactory.create()) // TODO: add converter
+    private val okHttpClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .addInterceptor(provideLoggingInterceptor())
+            .addInterceptor(provideHeaderInterceptor())
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .build()
+    }
 
-        /// DONE: create Interceptor and add it to client, what does this do?
-        val logger = HttpLoggingInterceptor().apply{
+    val retrofit: Retrofit by lazy {
+        Retrofit.Builder()
+            .baseUrl(Constants.BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+    }
+
+    private fun provideLoggingInterceptor(): Interceptor {
+        return HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
-        sHttpClient.addInterceptor(logger)
+    }
 
-        sRetrofit = sBuilder.client(sHttpClient.build()).build()
+    private fun provideHeaderInterceptor(): Interceptor {
+        return Interceptor { chain ->
+            val original = chain.request()
+            val request = original.newBuilder()
+                .addHeader("Accept", "application/json")
+                .build()
+            chain.proceed(request)
+        }
     }
 
     fun <S> createService(serviceClass: Class<S>): S {
-        return sRetrofit.create(serviceClass)
-    }
-
-    init {
-        init()
+        return retrofit.create(serviceClass)
     }
 }

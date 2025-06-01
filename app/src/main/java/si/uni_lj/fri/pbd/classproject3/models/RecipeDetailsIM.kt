@@ -49,7 +49,5 @@ data class RecipeDetailsIM(
     var strMeasure18: String? = null,
     var strMeasure19: String? = null,
     var strMeasure20: String? = null,
-    var strSource: String? = null,
-    var isLoading: Boolean = false,
-    var errorMessage: String? = null
+    var strSource: String? = null
 )

@@ -1,99 +1,88 @@
 package si.uni_lj.fri.pbd.classproject3.repository
 
-import android.app.Application
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
-import retrofit2.Response
-import si.uni_lj.fri.pbd.classproject3.database.RecipeDatabase
+import kotlinx.coroutines.flow.map
 import si.uni_lj.fri.pbd.classproject3.database.dao.RecipeDao
-import si.uni_lj.fri.pbd.classproject3.database.entity.RecipeDetails
+import si.uni_lj.fri.pbd.classproject3.models.Mapper
+import si.uni_lj.fri.pbd.classproject3.models.RecipeDetailsIM
+import si.uni_lj.fri.pbd.classproject3.models.RecipeSummaryIM
 import si.uni_lj.fri.pbd.classproject3.models.dto.IngredientDTO
-import si.uni_lj.fri.pbd.classproject3.models.dto.RecipeDetailsDTO
-import si.uni_lj.fri.pbd.classproject3.models.dto.RecipeSummaryDTO
-import si.uni_lj.fri.pbd.classproject3.models.dto.RecipesByIdDTO
-import si.uni_lj.fri.pbd.classproject3.models.dto.RecipesByIngredientsDTO
 import si.uni_lj.fri.pbd.classproject3.rest.RestAPI
-import si.uni_lj.fri.pbd.classproject3.rest.ServiceGenerator
+import java.io.IOException
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class RecipeRepository(
-    application: Application?
-    ) {
+@Singleton
+class RecipeRepository @Inject constructor(
+    private val api: RestAPI,
+    private val dao: RecipeDao
+) {
 
-    // DONE: Add DAO reference
-    private val recipeDao: RecipeDao?
 
-    private val restAPI: RestAPI = ServiceGenerator.createService(RestAPI::class.java)
-
-    suspend fun getAllIngredients(): Result<List<IngredientDTO>>? {
-        return try {
-            val response = restAPI.getAllIngredients()
-            if (response.isSuccessful) {
-                val ingredientsDTO = response.body()
-                val ingredientsList = ingredientsDTO?.ingredients ?: emptyList()
-                Result.success(ingredientsList)
-            } else {
-                Result.failure(Exception("Failed to fetch ingredients: ${response.code()} ${response.message()}"))
-            }
+    suspend fun loadAllIngredients(): List<IngredientDTO> {
+        try {
+            return api.getAllIngredients()?.ingredients.orEmpty()
+        } catch (e: IOException) {
+            throw IOException("Network error fetching ingredients: ${e.message}", e)
         } catch (e: Exception) {
-            Result.failure(e)
+            throw Exception("Error fetching ingredients: ${e.message}", e)
         }
     }
 
-    suspend fun getRecipesByMainIngredient(mainIngredient: String): Result<List<RecipeSummaryDTO>>{
-        return try {
-            val response: Response<RecipesByIngredientsDTO> = restAPI.filterByMainIngredient(mainIngredient)
-            if (response.isSuccessful) {
-                val recipes = response.body()?.meals
-                if (recipes != null) {
-                    Result.success(recipes)
-                } else {
-                    Result.failure(Exception("No recipes found"))
-                }
-            } else {
-                Result.failure(Exception("Error: ${response.code()}"))
-            }
+    suspend fun loadRecipes(ingredient: String): List<RecipeSummaryIM> {
+        try {
+            return api.getRecipesByIngredient(ingredient)
+                ?.recipes.orEmpty()
+                .map { Mapper.mapRecipSummaryDtoToRecipeSummaryIm(it) }
+        } catch (e: IOException) {
+            throw IOException("Network error fetching recipes for $ingredient: ${e.message}", e)
         } catch (e: Exception) {
-            Result.failure(e)
+            throw Exception("Error fetching recipes for $ingredient: ${e.message}", e)
         }
     }
 
-    suspend fun getRecipeById(recipeId: String): Result<RecipeDetailsDTO> {
-        return try {
-            val response: Response<RecipesByIdDTO> = restAPI.lookupRecipeById(recipeId)
-            if (response.isSuccessful) {
-                val recipe = response.body()?.meals?.firstOrNull()
-                if (recipe != null) {
-                    Result.success(recipe)
-                } else {
-                    Result.failure(Exception("No recipe found"))
-                }
-            } else {
-                Result.failure(Exception("Error: ${response.code()}"))
+
+    suspend fun loadRecipeDetails(id: String, isOnline: Boolean): RecipeDetailsIM {
+        val localRecipe = dao.getRecipeById(id)
+        val isFavoriteCurrentState = localRecipe?.isFavorite
+
+        if (isOnline) {
+            try {
+                val dto = api.getRecipeDetailsById(id)?.recipes?.firstOrNull()
+                    ?: throw IllegalStateException("Recipe $id not found on server")
+                val detailsToStore = Mapper.mapRecipeDetailsDtoToRecipeDetails(isFavoriteCurrentState ?: false, dto)
+                detailsToStore.id = localRecipe?.id
+                dao.insert(detailsToStore)
+                return Mapper.mapRecipeDetailsDtoToRecipeDetailsIm(isFavoriteCurrentState, dto)
+            } catch (e: IOException) {
+                localRecipe?.let { return Mapper.mapRecipeDetailsToRecipeDetailsIm(it.isFavorite, it) }
+                throw IOException("Network error fetching details for $id. No local data available: ${e.message}", e)
+            } catch (e: Exception) {
+                localRecipe?.let { return Mapper.mapRecipeDetailsToRecipeDetailsIm(it.isFavorite, it) }
+                throw Exception("Error fetching details for $id. No local data available: ${e.message}", e)
             }
-        } catch (e: Exception) {
-            Result.failure(e)
+        } else {
+            localRecipe?.let {
+                return Mapper.mapRecipeDetailsToRecipeDetailsIm(it.isFavorite, it)
+            } ?: throw Exception("Recipe $id not found in local database for offline viewing.")
         }
     }
 
-    fun getFavoriteRecipes(): Flow<List<RecipeDetails>> {
-        return recipeDao?.getAllRecipes() ?: flowOf(emptyList())
-    }
+    fun favoriteRecipes(): Flow<List<RecipeSummaryIM>> =
+        dao.getFavoriteRecipes()
+            .map { list -> list.map { Mapper.mapRecipeDetailsToRecipeSummaryIm(it) } }
 
-    suspend fun insertRecipe(recipe: RecipeDetails) {
-        recipeDao?.insertRecipe(recipe)
-    }
+    suspend fun toggleFavorite(details: RecipeDetailsIM) {
+        val recipeId = details.idMeal ?: return
 
-    suspend fun deleteRecipeById(idMeal: String) {
-        recipeDao?.deleteRecipeById(idMeal)
-    }
+        val localVersion = dao.getRecipeById(recipeId)
+        val newFavoriteState = !(localVersion?.isFavorite ?: details.isFavorite ?: false)
 
-    suspend fun getRecipeByIdFromDB(idMeal: String): RecipeDetails? {
-        return recipeDao?.getRecipeById(idMeal)
-    }
+        val recipeToStore = localVersion?.apply {
+            isFavorite = newFavoriteState
+        } ?: Mapper.mapRecipeDetailsImToRecipeDetails(newFavoriteState, details)
 
-    init {
-        val database = RecipeDatabase.getDatabase(application!!)
-        recipeDao = database.recipeDao()
+        recipeToStore.isFavorite = newFavoriteState
+        dao.insert(recipeToStore)
     }
-
 }

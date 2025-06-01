@@ -10,7 +10,7 @@ import si.uni_lj.fri.pbd.classproject3.database.entity.RecipeDetails
 @androidx.room.Database(entities = [RecipeDetails::class], version = 1, exportSchema = false)
 abstract class RecipeDatabase : RoomDatabase() {
 
-    // DONE: add a DAO reference
+
     abstract fun recipeDao(): RecipeDao
 
     companion object {
@@ -24,8 +24,8 @@ abstract class RecipeDatabase : RoomDatabase() {
 
                 if (instance == null) {
                     instance = Room.databaseBuilder(context.applicationContext,
-                        RecipeDatabase::class.java, Constants.DB_NAME)
-                            .fallbackToDestructiveMigration(false)
+                            RecipeDatabase::class.java, Constants.DB_NAME)
+                            .fallbackToDestructiveMigration()
                             .build()
                     INSTANCE = instance
                 }
