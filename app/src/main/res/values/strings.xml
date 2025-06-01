@@ -1,0 +1,24 @@
+<resources>
+    <string name="app_name">ClassProject3</string>
+
+    <string-array name="cooking_puns">
+        <item>Keep calm and curry on</item>
+        <item>Whisk it for the biscuit</item>
+        <item>Life is what you bake it</item>
+        <item>Just roll with it</item>
+        <item>Don\'t go bacon my heart</item>
+        <item>Egg-cellent choice!</item>
+        <item>I\'m on a seafood diet. I see food and I eat it!</item>
+        <item>Spice up your life!</item>
+        <item>I\'m soy into you</item>
+        <item>Let\'s taco \'bout it</item>
+        <item>Have a grape day!</item>
+        <item>Don\'t worry, be happy. Just like a pancake!</item>
+        <item>I\'m just here for the food</item>
+        <item>You\'re the zest!</item>
+        <item>I\'m on a roll!</item>
+        <item>Don\'t go baking my heart</item>
+        <item>You\'re the peanut butter to my jelly</item>
+        <item>I\'m nacho average cook</item>
+    </string-array>
+</resources>
